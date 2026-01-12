@@ -1,0 +1,5 @@
+{
+  "name": "Competition Creator Dashboard",
+  "description": "A streamlined dashboard for creating competitions via n8n webhooks, featuring base64 image handling and instant feedback.",
+  "requestFramePermissions": []
+}
