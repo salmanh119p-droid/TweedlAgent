@@ -12,7 +12,9 @@ import {
   ArrowDownToLine,
   Clock,
   CalendarDays,
-  X
+  X,
+  Tag,
+  Ticket
 } from 'lucide-react';
 
 interface CompetitionManagerProps {
@@ -32,6 +34,8 @@ const CompetitionManager: React.FC<CompetitionManagerProps> = ({ webhookUrl }) =
   const [identifier, setIdentifier] = useState('');
   const [newStartDate, setNewStartDate] = useState('');
   const [newEndDate, setNewEndDate] = useState('');
+  const [newPrice, setNewPrice] = useState('');
+  const [newMaxTickets, setNewMaxTickets] = useState('');
   
   // List State
   const [products, setProducts] = useState<Product[]>([]);
@@ -41,7 +45,7 @@ const CompetitionManager: React.FC<CompetitionManagerProps> = ({ webhookUrl }) =
   // Action State
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [actionType, setActionType] = useState<'update_start' | 'update_end' | 'delete' | null>(null);
+  const [actionType, setActionType] = useState<'update_start' | 'update_end' | 'update_price' | 'update_limit' | 'delete' | null>(null);
 
   // Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -100,7 +104,7 @@ const CompetitionManager: React.FC<CompetitionManagerProps> = ({ webhookUrl }) =
     window.scrollTo({ top: document.getElementById('identify-section')?.offsetTop ? document.getElementById('identify-section')!.offsetTop - 100 : 0, behavior: 'smooth' });
   };
 
-  const handleAction = async (type: 'update_start' | 'update_end' | 'delete') => {
+  const handleAction = async (type: 'update_start' | 'update_end' | 'update_price' | 'update_limit' | 'delete') => {
     setStatus(null);
     if (!identifier.trim()) {
       setStatus({ type: 'error', message: 'Please provide a Competition Title or ID.' });
@@ -122,6 +126,16 @@ const CompetitionManager: React.FC<CompetitionManagerProps> = ({ webhookUrl }) =
       return;
     }
 
+    if (type === 'update_price' && !newPrice) {
+      setStatus({ type: 'error', message: 'Please enter a new Ticket Price.' });
+      return;
+    }
+
+    if (type === 'update_limit' && !newMaxTickets) {
+      setStatus({ type: 'error', message: 'Please enter a new Ticket Limit.' });
+      return;
+    }
+
     if (type === 'delete') {
       setShowDeleteModal(true);
       return;
@@ -130,7 +144,7 @@ const CompetitionManager: React.FC<CompetitionManagerProps> = ({ webhookUrl }) =
     await performAction(type);
   };
 
-  const performAction = async (type: 'update_start' | 'update_end' | 'delete') => {
+  const performAction = async (type: 'update_start' | 'update_end' | 'update_price' | 'update_limit' | 'delete') => {
     setActionType(type);
     setIsLoading(true);
 
@@ -142,6 +156,8 @@ const CompetitionManager: React.FC<CompetitionManagerProps> = ({ webhookUrl }) =
 
       if (type === 'update_start') payload.new_start_date = newStartDate;
       if (type === 'update_end') payload.new_end_date = newEndDate;
+      if (type === 'update_price') payload.new_price = newPrice;
+      if (type === 'update_limit') payload.new_max_tickets = newMaxTickets;
 
       const response = await fetch(webhookUrl, { 
         method: 'POST', 
@@ -159,17 +175,23 @@ const CompetitionManager: React.FC<CompetitionManagerProps> = ({ webhookUrl }) =
         if (json.success === false) throw new Error(json.message || 'Operation failed');
       } catch(e) { /* ignore parse errors if successful HTTP code */ }
 
+      let successMessage = 'Operation completed successfully.';
+      if (type === 'delete') successMessage = 'Competition removal request sent successfully.';
+      else if (type === 'update_start' || type === 'update_end') successMessage = 'Schedule update request sent successfully.';
+      else if (type === 'update_price') successMessage = 'Price update request sent successfully.';
+      else if (type === 'update_limit') successMessage = 'Ticket limit update request sent successfully.';
+
       setStatus({
         type: 'success',
-        message: type === 'delete' 
-          ? 'Competition removal request sent successfully.' 
-          : 'Schedule update request sent successfully.'
+        message: successMessage
       });
       
       // Clear fields on success
       if (type === 'delete') setIdentifier('');
       if (type === 'update_start') setNewStartDate('');
       if (type === 'update_end') setNewEndDate('');
+      if (type === 'update_price') setNewPrice('');
+      if (type === 'update_limit') setNewMaxTickets('');
 
       // Refresh list if it was open
       if (products.length > 0) fetchProducts();
@@ -436,6 +458,90 @@ const CompetitionManager: React.FC<CompetitionManagerProps> = ({ webhookUrl }) =
            >
              {isLoading && actionType === 'update_end' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
              Save End Date
+           </button>
+        </div>
+
+        {/* TICKET PRICE CARD */}
+        <div className="bg-white/40 dark:bg-white/5 rounded-3xl p-6 border border-white/20 dark:border-white/5 shadow-lg flex flex-col h-full">
+           <div className="flex items-center gap-3 mb-4">
+             <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-400">
+                <Tag className="w-5 h-5" />
+             </div>
+             <h3 className="font-bold text-slate-800 dark:text-white">Update Price</h3>
+           </div>
+           
+           <div className="flex-grow space-y-4">
+             <p className="text-sm text-slate-600 dark:text-slate-400">
+               Set a new ticket price.
+             </p>
+             <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">£</span>
+                <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={newPrice}
+                    onChange={(e) => setNewPrice(e.target.value)}
+                    className={`${inputClass} pl-8 text-sm py-3 font-mono`}
+                    placeholder="0.00"
+                />
+             </div>
+           </div>
+
+           <button
+             onClick={() => handleAction('update_price')}
+             disabled={isLoading}
+             className={`mt-6 w-full py-3 rounded-xl font-bold uppercase tracking-wide text-xs flex items-center justify-center transition-all shadow-lg
+               ${isLoading && actionType === 'update_price'
+                 ? 'bg-slate-400 text-slate-200 cursor-not-allowed' 
+                 : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-1'
+               }
+             `}
+           >
+             {isLoading && actionType === 'update_price' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+             Update Price
+           </button>
+        </div>
+
+        {/* TICKET LIMIT CARD */}
+        <div className="bg-white/40 dark:bg-white/5 rounded-3xl p-6 border border-white/20 dark:border-white/5 shadow-lg flex flex-col h-full">
+           <div className="flex items-center gap-3 mb-4">
+             <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                <Ticket className="w-5 h-5" />
+             </div>
+             <h3 className="font-bold text-slate-800 dark:text-white">Update Ticket Limit</h3>
+           </div>
+           
+           <div className="flex-grow space-y-4">
+             <p className="text-sm text-slate-600 dark:text-slate-400">
+               Increase or decrease the total tickets available.
+             </p>
+             <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">#</span>
+                <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={newMaxTickets}
+                    onChange={(e) => setNewMaxTickets(e.target.value)}
+                    className={`${inputClass} pl-8 text-sm py-3 font-mono`}
+                    placeholder="1000"
+                />
+             </div>
+           </div>
+
+           <button
+             onClick={() => handleAction('update_limit')}
+             disabled={isLoading}
+             className={`mt-6 w-full py-3 rounded-xl font-bold uppercase tracking-wide text-xs flex items-center justify-center transition-all shadow-lg
+               ${isLoading && actionType === 'update_limit'
+                 ? 'bg-slate-400 text-slate-200 cursor-not-allowed' 
+                 : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/30 hover:shadow-blue-500/50 hover:-translate-y-1'
+               }
+             `}
+           >
+             {isLoading && actionType === 'update_limit' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+             Update Limit
            </button>
         </div>
 
